@@ -1,5 +1,6 @@
 # Use an official Python runtime as a parent image
-FROM python:3.14-slim
+# Note: Using 3.13 as 3.14 lacks pre-built wheels for pydantic-core
+FROM python:3.13-slim
 
 # Set the working directory in the container
 WORKDIR /app
