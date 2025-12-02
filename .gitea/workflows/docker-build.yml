@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Deploy to Gitea Registry
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
 
 env:
   GITEA_REGISTRY: git.home.mikelamoureux.net
-  IMAGE_NAME: unraid-mcp
+  PROJECT_NAME: unraid-mcp
 
 jobs:
   build-and-push:
@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -35,34 +35,35 @@ jobs:
           username: ${{ secrets.WORKFLOW_BOT_USERNAME }}
           password: ${{ secrets.WORKFLOW_BOT_PASSWORD }}
 
-      - name: Build and push
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ${{ env.GITEA_REGISTRY }}/mike/${{ env.IMAGE_NAME }}:latest
-            ${{ env.GITEA_REGISTRY }}/mike/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.GITEA_REGISTRY }}/mike/${{ env.IMAGE_NAME }}-cache:latest
-          cache-to: type=registry,ref=${{ env.GITEA_REGISTRY }}/mike/${{ env.IMAGE_NAME }}-cache:latest,mode=max
+            ${{ env.GITEA_REGISTRY }}/mike/${{ env.PROJECT_NAME }}:latest
+            ${{ env.GITEA_REGISTRY }}/mike/${{ env.PROJECT_NAME }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.GITEA_REGISTRY }}/mike/${{ env.PROJECT_NAME }}-cache:latest
+          cache-to: type=registry,ref=${{ env.GITEA_REGISTRY }}/mike/${{ env.PROJECT_NAME }}-cache:latest,mode=max
           platforms: linux/amd64
 
-      - name: Trigger stack redeployment via Semaphore
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && success()
+
+    steps:
+      - name: Authenticate to Vault and retrieve Semaphore token
+        id: vault
         run: |
-          # Trigger restart_stack.yml template (ID: 17) on Semaphore
-          response=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.SEMAPHORE_API_URL }}/api/project/2/tasks" \
-            -H "Authorization: Bearer ${{ secrets.SEMAPHORE_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "template_id": 17,
-              "environment": "{\"docker_host\": \"common-services.home.mikelamoureux.net\", \"restart_stack\": \"mcp-gateway\"}"
-            }')
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          echo "Response: $body"
-          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-            echo "Successfully triggered redeployment of mcp-gateway stack on common-services"
-          else
-            echo "Failed to trigger redeployment (HTTP $http_code)"
-            exit 1
-          fi
+          VAULT_TOKEN=$(curl -s -X POST ${{ secrets.VAULT_ADDR }}/v1/auth/approle/login -d "{\"role_id\":\"${{ secrets.VAULT_ROLE_ID }}\",\"secret_id\":\"${{ secrets.VAULT_SECRET_ID }}\"}" | jq -r '.auth.client_token')
+          SEMAPHORE_TOKEN=$(curl -s -H "X-Vault-Token: $VAULT_TOKEN" ${{ secrets.VAULT_ADDR }}/v1/homelab/data/gitea-actions/semaphore-api-key | jq -r '.data.data.token')
+          echo "SEMAPHORE_TOKEN=$SEMAPHORE_TOKEN" >> $GITHUB_ENV
+
+      - name: Trigger Ansible Semaphore Stack Restart
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: 'https://semaphore.ansible.home.mikelamoureux.net/api/project/2/tasks'
+          method: 'POST'
+          customHeaders: '{"Content-Type": "application/json", "Authorization": "Bearer ${{ env.SEMAPHORE_TOKEN }}"}'
+          data: '{"template_id": 17, "environment": "{\"docker_host\": \"common-services.home.mikelamoureux.net\", \"restart_stack\": \"mcp-gateway\"}"}'
