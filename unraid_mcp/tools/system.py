@@ -20,7 +20,7 @@ async def _get_system_info() -> dict[str, Any]:
     query = """
     query GetSystemInfo {
       info {
-        os { platform distro release codename kernel arch hostname codepage logofile serial build uptime }
+        os { platform distro release codename kernel arch hostname logofile serial build uptime }
         cpu { manufacturer brand vendor family model stepping revision voltage speed speedmin speedmax threads cores processors socket cache flags }
         memory {
           # Avoid fetching problematic fields that cause type errors
@@ -591,7 +591,9 @@ def register_system_tools(mcp: FastMCP) -> None:
                 return {
                     "success": success,
                     "disk_id": disk_id,
-                    "message": "Disk statistics cleared" if success else "Failed to clear statistics",
+                    "message": (
+                        "Disk statistics cleared" if success else "Failed to clear statistics"
+                    ),
                 }
 
             raise ToolError(f"Failed to clear statistics for disk {disk_id}")
@@ -611,10 +613,10 @@ def register_system_tools(mcp: FastMCP) -> None:
         query GetDeviceInfo {
           info {
             devices {
-              gpus { address vbiosVersion vendor model maxLinkSpeed currentLinkSpeed bus uuid driverVersion }
-              pci { address classId className vendorId vendorName deviceId deviceName driver revision }
-              usb { bus address deviceId vendorId name type removable serial maxPower }
-              network { iface ifaceName mac ip4 ip4subnet ip6 ip6subnet speed dhcp dnsSuffix ieee8021xAuth ieee8021xState }
+              gpu { id type typeid blacklisted class productid vendorname }
+              pci { id type typeid vendorname vendorid productname productid blacklisted class }
+              usb { id name bus device }
+              network { id iface model vendor mac virtual speed dhcp }
             }
           }
         }
@@ -626,7 +628,7 @@ def register_system_tools(mcp: FastMCP) -> None:
             if response_data.get("info") and response_data["info"].get("devices"):
                 devices = response_data["info"]["devices"]
                 return {
-                    "gpus": devices.get("gpus", []),
+                    "gpus": devices.get("gpu", []),
                     "pci_devices": devices.get("pci", []),
                     "usb_devices": devices.get("usb", []),
                     "network_interfaces": devices.get("network", []),
@@ -643,20 +645,15 @@ def register_system_tools(mcp: FastMCP) -> None:
         """Lists all installed plugins on the Unraid system.
 
         Returns:
-            List of plugin information including name, version, author, description, and status
+            List of plugin information including name, version, hasApiModule, and hasCliModule
         """
         query = """
         query ListPlugins {
           plugins {
             name
             version
-            pluginUrl
-            author
-            category
-            description
-            support
-            icon
-            installed
+            hasApiModule
+            hasCliModule
           }
         }
         """
@@ -691,6 +688,31 @@ def register_system_tools(mcp: FastMCP) -> None:
             flash = response_data.get("flash", {})
             return dict(flash) if isinstance(flash, dict) else {}
         except Exception as e:
+            # Fallback: The flash query may fail due to null guid field on some systems
+            # Try to get flash info from vars which has flashGuid, flashProduct, flashVendor
+            logger.warning(f"Primary flash query failed: {e}, trying fallback via vars")
+            try:
+                fallback_query = """
+                query GetFlashInfoFromVars {
+                  vars {
+                    flashGuid
+                    flashProduct
+                    flashVendor
+                  }
+                }
+                """
+                fallback_data = await make_graphql_request(fallback_query)
+                vars_data = fallback_data.get("vars", {})
+                if vars_data:
+                    return {
+                        "guid": vars_data.get("flashGuid"),
+                        "product": vars_data.get("flashProduct"),
+                        "vendor": vars_data.get("flashVendor"),
+                        "source": "fallback_vars",
+                    }
+            except Exception as fallback_error:
+                logger.error(f"Fallback flash query also failed: {fallback_error}")
+
             logger.error(f"Error in get_flash_info: {e}", exc_info=True)
             raise ToolError(f"Failed to retrieve flash information: {str(e)}") from e
 

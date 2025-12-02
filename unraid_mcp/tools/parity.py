@@ -58,15 +58,31 @@ def register_parity_tools(mcp: FastMCP) -> None:
                 check_dict = dict(check)
                 if check_dict.get("duration"):
                     duration_seconds = check_dict["duration"]
-                    hours = duration_seconds // 3600
-                    minutes = (duration_seconds % 3600) // 60
-                    check_dict["durationFormatted"] = f"{hours}h {minutes}m"
+                    # Handle potential None or invalid values
+                    if isinstance(duration_seconds, (int, float)) and duration_seconds >= 0:
+                        hours = int(duration_seconds) // 3600
+                        minutes = (int(duration_seconds) % 3600) // 60
+                        check_dict["durationFormatted"] = f"{hours}h {minutes}m"
                 result.append(check_dict)
 
             return result
 
         except Exception as e:
+            error_str = str(e)
             logger.error(f"Error in get_parity_history: {e}", exc_info=True)
+
+            # Handle NaN values from backend which GraphQL cannot serialize as Int
+            if "NaN" in error_str or "non-integer" in error_str.lower():
+                logger.warning("Parity history contains invalid numeric values (NaN)")
+                return [
+                    {
+                        "error": "Parity history data contains invalid values",
+                        "message": "The Unraid API returned NaN (Not a Number) for some fields. "
+                        "This is typically a backend issue. Use get_parity_status for current status.",
+                        "suggestion": "Check parity history directly in the Unraid web UI",
+                    }
+                ]
+
             raise ToolError(f"Failed to retrieve parity history: {str(e)}") from e
 
     @mcp.tool()

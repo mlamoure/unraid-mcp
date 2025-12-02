@@ -152,10 +152,7 @@ def register_vm_tools(mcp: FastMCP) -> None:
                             return dict(vm_data) if isinstance(vm_data, dict) else {}
 
                     logger.warning(f"VM with identifier '{vm_identifier}' not found.")
-                    available_vms = [
-                        f"{vm.get('name')} (ID: {vm.get('id')})"
-                        for vm in vms
-                    ]
+                    available_vms = [f"{vm.get('name')} (ID: {vm.get('id')})" for vm in vms]
                     raise ToolError(
                         f"VM '{vm_identifier}' not found. Available VMs: {', '.join(available_vms)}"
                     )

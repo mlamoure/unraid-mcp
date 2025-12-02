@@ -96,8 +96,6 @@ def register_docker_tools(mcp: FastMCP) -> None:
               state
               status
               autoStart
-              isUpdateAvailable
-              isRebuildReady
             }
           }
         }
@@ -212,8 +210,6 @@ def register_docker_tools(mcp: FastMCP) -> None:
                           state
                           status
                           autoStart
-                          isUpdateAvailable
-                          isRebuildReady
                         }
                       }
                     }
@@ -278,8 +274,6 @@ def register_docker_tools(mcp: FastMCP) -> None:
                           state
                           status
                           autoStart
-                          isUpdateAvailable
-                          isRebuildReady
                         }
                       }
                     }
@@ -374,8 +368,6 @@ def register_docker_tools(mcp: FastMCP) -> None:
               networkSettings
               mounts
               autoStart
-              isUpdateAvailable
-              isRebuildReady
         """
 
         # Fetch all containers first
@@ -452,25 +444,10 @@ def register_docker_tools(mcp: FastMCP) -> None:
               internal
               attachable
               ingress
-              ipam {
-                driver
-                options
-                config {
-                  subnet
-                  ipRange
-                  gateway
-                  auxAddress
-                }
-              }
+              ipam
               options
               labels
-              containers {
-                name
-                endpointId
-                macAddress
-                ipv4Address
-                ipv6Address
-              }
+              containers
             }
           }
         }
@@ -493,6 +470,8 @@ def register_docker_tools(mcp: FastMCP) -> None:
 
         Returns a list of containers with their update availability status,
         useful for identifying which containers have updates available.
+
+        Note: This feature may not be available on all Unraid API versions.
 
         Returns:
             List of container update status items containing:
@@ -517,7 +496,20 @@ def register_docker_tools(mcp: FastMCP) -> None:
                 return list(statuses) if isinstance(statuses, list) else []
             return []
         except Exception as e:
+            error_str = str(e)
             logger.error(f"Error in get_container_update_statuses: {e}", exc_info=True)
+
+            # Handle case where field doesn't exist on older API versions
+            if "Cannot query field" in error_str or "containerUpdateStatuses" in error_str:
+                logger.warning("containerUpdateStatuses not available on this Unraid API version")
+                return [
+                    {
+                        "error": "Feature not available",
+                        "message": "Container update status tracking is not available on this Unraid API version. "
+                        "Please update Unraid or check container updates manually in the web UI.",
+                    }
+                ]
+
             raise ToolError(f"Failed to get container update statuses: {str(e)}") from e
 
     logger.info("Docker tools registered successfully")
