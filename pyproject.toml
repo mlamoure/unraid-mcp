@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "unraid-mcp"
-version = "0.1.0"
+version = "2025.0.2"
 description = "MCP Server for Unraid API - provides tools to interact with an Unraid server's GraphQL API"
 authors = [
     {name = "jmagar", email = "jmagar@users.noreply.github.com"}
