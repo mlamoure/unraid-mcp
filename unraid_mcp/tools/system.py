@@ -28,8 +28,10 @@ async def _get_system_info() -> dict[str, Any]:
         }
         baseboard { manufacturer model version serial assetTag }
         system { manufacturer model version serial uuid sku }
-        versions { kernel openssl systemOpenssl systemOpensslLib node v8 npm yarn pm2 gulp grunt git tsc mysql redis mongodb apache nginx php docker postfix postgresql perl python gcc unraid }
-        apps { installed started }
+        versions {
+          core { unraid api kernel }
+          packages { openssl node npm pm2 git nginx php docker }
+        }
         # Remove devices section as it has non-nullable fields that might be null
         machineId
         time
@@ -96,10 +98,21 @@ async def _get_array_status() -> dict[str, Any]:
           kilobytes { free used total }
           disks { free used total }
         }
-        boot { id idx name device size status rotational temp numReads numWrites numErrors fsSize fsFree fsUsed exportable type warning critical fsType comment format transport color }
-        parities { id idx name device size status rotational temp numReads numWrites numErrors fsSize fsFree fsUsed exportable type warning critical fsType comment format transport color }
-        disks { id idx name device size status rotational temp numReads numWrites numErrors fsSize fsFree fsUsed exportable type warning critical fsType comment format transport color }
-        caches { id idx name device size status rotational temp numReads numWrites numErrors fsSize fsFree fsUsed exportable type warning critical fsType comment format transport color }
+        parityCheckStatus {
+          date
+          duration
+          speed
+          status
+          errors
+          progress
+          correcting
+          paused
+          running
+        }
+        boot { id idx name device size status rotational temp numReads numWrites numErrors fsSize fsFree fsUsed exportable type warning critical fsType comment format transport color isSpinning }
+        parities { id idx name device size status rotational temp numReads numWrites numErrors fsSize fsFree fsUsed exportable type warning critical fsType comment format transport color isSpinning }
+        disks { id idx name device size status rotational temp numReads numWrites numErrors fsSize fsFree fsUsed exportable type warning critical fsType comment format transport color isSpinning }
+        caches { id idx name device size status rotational temp numReads numWrites numErrors fsSize fsFree fsUsed exportable type warning critical fsType comment format transport color isSpinning }
       }
     }
     """
@@ -204,6 +217,21 @@ async def _get_array_status() -> dict[str, Any]:
 
         summary["overall_health"] = overall_health
         summary["health_summary"] = health_summary
+
+        # Add parity check status if available
+        if raw_array_info.get("parityCheckStatus"):
+            parity_status = raw_array_info["parityCheckStatus"]
+            summary["parity_check"] = {
+                "running": parity_status.get("running", False),
+                "paused": parity_status.get("paused", False),
+                "correcting": parity_status.get("correcting", False),
+                "progress": parity_status.get("progress"),
+                "speed": parity_status.get("speed"),
+                "errors": parity_status.get("errors", 0),
+                "last_check_date": parity_status.get("date"),
+                "last_duration": parity_status.get("duration"),
+                "status": parity_status.get("status"),
+            }
 
         return {"summary": summary, "details": raw_array_info}
 
@@ -403,5 +431,267 @@ def register_system_tools(mcp: FastMCP) -> None:
         except Exception as e:
             logger.error(f"Error in get_unraid_variables: {e}", exc_info=True)
             raise ToolError(f"Failed to retrieve Unraid variables: {str(e)}") from e
+
+    @mcp.tool()
+    async def manage_array_state(action: str) -> dict[str, Any]:
+        """Start or stop the Unraid array.
+
+        Args:
+            action: Action to perform - 'start' or 'stop'
+
+        Returns:
+            Dict containing the updated array state
+        """
+        action_upper = action.upper()
+        if action_upper not in ["START", "STOP"]:
+            raise ToolError("Invalid action. Must be 'start' or 'stop'.")
+
+        mutation = """
+        mutation SetArrayState($input: ArrayStateInput!) {
+          array {
+            setState(input: $input) {
+              id
+              state
+            }
+          }
+        }
+        """
+        variables = {"input": {"desiredState": action_upper}}
+
+        try:
+            logger.info(f"Executing manage_array_state: action={action}")
+            response_data = await make_graphql_request(mutation, variables)
+
+            if response_data.get("array") and response_data["array"].get("setState"):
+                result = response_data["array"]["setState"]
+                return {
+                    "success": True,
+                    "action": action,
+                    "state": result.get("state"),
+                    "message": f"Array {action} operation completed",
+                }
+
+            raise ToolError(f"Failed to {action} array")
+
+        except Exception as e:
+            logger.error(f"Error in manage_array_state: {e}", exc_info=True)
+            raise ToolError(f"Failed to {action} array: {str(e)}") from e
+
+    @mcp.tool()
+    async def mount_array_disk(disk_id: str) -> dict[str, Any]:
+        """Mount a disk in the array.
+
+        Args:
+            disk_id: The ID of the disk to mount
+
+        Returns:
+            Dict containing the mounted disk information
+        """
+        mutation = """
+        mutation MountArrayDisk($id: PrefixedID!) {
+          array {
+            mountArrayDisk(id: $id) {
+              id
+              name
+              device
+              status
+              fsType
+            }
+          }
+        }
+        """
+        variables = {"id": disk_id}
+
+        try:
+            logger.info(f"Executing mount_array_disk: disk_id={disk_id}")
+            response_data = await make_graphql_request(mutation, variables)
+
+            if response_data.get("array") and response_data["array"].get("mountArrayDisk"):
+                disk = response_data["array"]["mountArrayDisk"]
+                return {
+                    "success": True,
+                    "message": f"Disk {disk.get('name', disk_id)} mounted",
+                    "disk": dict(disk),
+                }
+
+            raise ToolError(f"Failed to mount disk {disk_id}")
+
+        except Exception as e:
+            logger.error(f"Error in mount_array_disk: {e}", exc_info=True)
+            raise ToolError(f"Failed to mount disk: {str(e)}") from e
+
+    @mcp.tool()
+    async def unmount_array_disk(disk_id: str) -> dict[str, Any]:
+        """Unmount a disk from the array.
+
+        Args:
+            disk_id: The ID of the disk to unmount
+
+        Returns:
+            Dict containing the unmounted disk information
+        """
+        mutation = """
+        mutation UnmountArrayDisk($id: PrefixedID!) {
+          array {
+            unmountArrayDisk(id: $id) {
+              id
+              name
+              device
+              status
+              fsType
+            }
+          }
+        }
+        """
+        variables = {"id": disk_id}
+
+        try:
+            logger.info(f"Executing unmount_array_disk: disk_id={disk_id}")
+            response_data = await make_graphql_request(mutation, variables)
+
+            if response_data.get("array") and response_data["array"].get("unmountArrayDisk"):
+                disk = response_data["array"]["unmountArrayDisk"]
+                return {
+                    "success": True,
+                    "message": f"Disk {disk.get('name', disk_id)} unmounted",
+                    "disk": dict(disk),
+                }
+
+            raise ToolError(f"Failed to unmount disk {disk_id}")
+
+        except Exception as e:
+            logger.error(f"Error in unmount_array_disk: {e}", exc_info=True)
+            raise ToolError(f"Failed to unmount disk: {str(e)}") from e
+
+    @mcp.tool()
+    async def clear_disk_statistics(disk_id: str) -> dict[str, Any]:
+        """Clear I/O statistics for a disk in the array.
+
+        Args:
+            disk_id: The ID of the disk to clear statistics for
+
+        Returns:
+            Dict containing operation result
+        """
+        mutation = """
+        mutation ClearArrayDiskStatistics($id: PrefixedID!) {
+          array {
+            clearArrayDiskStatistics(id: $id)
+          }
+        }
+        """
+        variables = {"id": disk_id}
+
+        try:
+            logger.info(f"Executing clear_disk_statistics: disk_id={disk_id}")
+            response_data = await make_graphql_request(mutation, variables)
+
+            if response_data.get("array"):
+                success = response_data["array"].get("clearArrayDiskStatistics", False)
+                return {
+                    "success": success,
+                    "disk_id": disk_id,
+                    "message": "Disk statistics cleared" if success else "Failed to clear statistics",
+                }
+
+            raise ToolError(f"Failed to clear statistics for disk {disk_id}")
+
+        except Exception as e:
+            logger.error(f"Error in clear_disk_statistics: {e}", exc_info=True)
+            raise ToolError(f"Failed to clear disk statistics: {str(e)}") from e
+
+    @mcp.tool()
+    async def get_device_info() -> dict[str, Any]:
+        """Retrieves information about system devices (GPU, PCI, USB, Network).
+
+        Returns:
+            Dict containing device information for GPUs, PCI devices, USB devices, and network interfaces
+        """
+        query = """
+        query GetDeviceInfo {
+          info {
+            devices {
+              gpus { address vbiosVersion vendor model maxLinkSpeed currentLinkSpeed bus uuid driverVersion }
+              pci { address classId className vendorId vendorName deviceId deviceName driver revision }
+              usb { bus address deviceId vendorId name type removable serial maxPower }
+              network { iface ifaceName mac ip4 ip4subnet ip6 ip6subnet speed dhcp dnsSuffix ieee8021xAuth ieee8021xState }
+            }
+          }
+        }
+        """
+        try:
+            logger.info("Executing get_device_info tool")
+            response_data = await make_graphql_request(query)
+
+            if response_data.get("info") and response_data["info"].get("devices"):
+                devices = response_data["info"]["devices"]
+                return {
+                    "gpus": devices.get("gpus", []),
+                    "pci_devices": devices.get("pci", []),
+                    "usb_devices": devices.get("usb", []),
+                    "network_interfaces": devices.get("network", []),
+                }
+
+            return {"message": "No device information available"}
+
+        except Exception as e:
+            logger.error(f"Error in get_device_info: {e}", exc_info=True)
+            raise ToolError(f"Failed to retrieve device information: {str(e)}") from e
+
+    @mcp.tool()
+    async def list_plugins() -> list[dict[str, Any]]:
+        """Lists all installed plugins on the Unraid system.
+
+        Returns:
+            List of plugin information including name, version, author, description, and status
+        """
+        query = """
+        query ListPlugins {
+          plugins {
+            name
+            version
+            pluginUrl
+            author
+            category
+            description
+            support
+            icon
+            installed
+          }
+        }
+        """
+        try:
+            logger.info("Executing list_plugins tool")
+            response_data = await make_graphql_request(query)
+            plugins = response_data.get("plugins", [])
+            return list(plugins) if isinstance(plugins, list) else []
+        except Exception as e:
+            logger.error(f"Error in list_plugins: {e}", exc_info=True)
+            raise ToolError(f"Failed to list plugins: {str(e)}") from e
+
+    @mcp.tool()
+    async def get_flash_info() -> dict[str, Any]:
+        """Retrieves information about the Unraid flash drive.
+
+        Returns:
+            Dict containing flash drive details including GUID, vendor, product, and size
+        """
+        query = """
+        query GetFlashInfo {
+          flash {
+            guid
+            vendor
+            product
+          }
+        }
+        """
+        try:
+            logger.info("Executing get_flash_info tool")
+            response_data = await make_graphql_request(query)
+            flash = response_data.get("flash", {})
+            return dict(flash) if isinstance(flash, dict) else {}
+        except Exception as e:
+            logger.error(f"Error in get_flash_info: {e}", exc_info=True)
+            raise ToolError(f"Failed to retrieve flash information: {str(e)}") from e
 
     logger.info("System tools registered successfully")

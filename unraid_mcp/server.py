@@ -21,9 +21,12 @@ from .subscriptions.manager import SubscriptionManager
 from .subscriptions.resources import register_subscription_resources
 from .tools.docker import register_docker_tools
 from .tools.health import register_health_tools
+from .tools.metrics import register_metrics_tools
+from .tools.parity import register_parity_tools
 from .tools.rclone import register_rclone_tools
 from .tools.storage import register_storage_tools
 from .tools.system import register_system_tools
+from .tools.ups import register_ups_tools
 from .tools.virtualization import register_vm_tools
 
 # Initialize FastMCP instance
@@ -78,6 +81,15 @@ def register_all_modules() -> None:
 
         register_rclone_tools(mcp)
         logger.info("☁️  RClone tools registered")
+
+        register_metrics_tools(mcp)
+        logger.info("📈 Metrics tools registered")
+
+        register_ups_tools(mcp)
+        logger.info("🔋 UPS tools registered")
+
+        register_parity_tools(mcp)
+        logger.info("🛡️  Parity tools registered")
 
         logger.info("🎯 All modules registered successfully - Server ready!")
 

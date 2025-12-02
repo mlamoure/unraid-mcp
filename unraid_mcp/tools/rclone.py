@@ -164,4 +164,69 @@ def register_rclone_tools(mcp: FastMCP) -> None:
             logger.error(f"Failed to delete RClone remote {name}: {str(e)}")
             raise ToolError(f"Failed to delete RClone remote {name}: {str(e)}") from e
 
+    @mcp.tool()
+    async def initiate_flash_backup(
+        remote_name: str,
+        source_path: str,
+        destination_path: str,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Initiates a flash drive backup to a configured RClone remote.
+
+        This starts an asynchronous backup job that copies the flash drive contents
+        to the specified remote location using RClone.
+
+        Args:
+            remote_name: Name of the configured RClone remote to use for backup
+            source_path: Source path to backup (typically the flash drive path)
+            destination_path: Destination path on the remote storage
+            options: Optional additional RClone options (e.g., {"--dry-run": True, "--transfers": 4})
+
+        Returns:
+            Dict containing backup status:
+            - status: Status message about the backup initiation
+            - jobId: Job ID to track the backup progress (if available)
+        """
+        mutation = """
+        mutation InitiateFlashBackup($input: InitiateFlashBackupInput!) {
+          initiateFlashBackup(input: $input) {
+            status
+            jobId
+          }
+        }
+        """
+        backup_input: dict[str, Any] = {
+            "remoteName": remote_name,
+            "sourcePath": source_path,
+            "destinationPath": destination_path,
+        }
+        if options:
+            backup_input["options"] = options
+
+        variables = {"input": backup_input}
+
+        try:
+            logger.info(
+                f"Initiating flash backup: {source_path} -> {remote_name}:{destination_path}"
+            )
+            response_data = await make_graphql_request(mutation, variables)
+
+            if "initiateFlashBackup" in response_data:
+                backup_status = response_data["initiateFlashBackup"]
+                logger.info(f"Flash backup initiated: {backup_status.get('status')}")
+                return {
+                    "success": True,
+                    "status": backup_status.get("status"),
+                    "jobId": backup_status.get("jobId"),
+                    "remote": remote_name,
+                    "source": source_path,
+                    "destination": destination_path,
+                }
+
+            raise ToolError("Failed to initiate flash backup - no response received")
+
+        except Exception as e:
+            logger.error(f"Failed to initiate flash backup: {str(e)}")
+            raise ToolError(f"Failed to initiate flash backup: {str(e)}") from e
+
     logger.info("RClone tools registered successfully")

@@ -9,11 +9,14 @@
 
 ## ✨ Features
 
-- 🔧 **26 Tools**: Complete Unraid management through MCP protocol
-- 🏗️ **Modular Architecture**: Clean, maintainable, and extensible codebase  
+- 🔧 **55+ Tools**: Complete Unraid management through MCP protocol
+- 🏗️ **Modular Architecture**: Clean, maintainable, and extensible codebase
 - ⚡ **High Performance**: Async/concurrent operations with optimized timeouts
 - 🔄 **Real-time Data**: WebSocket subscriptions for live log streaming
 - 📊 **Health Monitoring**: Comprehensive system diagnostics and status
+- 🔋 **UPS Management**: Monitor and configure UPS devices
+- 🛡️ **Parity Operations**: Full parity check lifecycle control
+- 📈 **System Metrics**: Real-time CPU and memory utilization
 - 🐳 **Docker Ready**: Full containerization support with Docker Compose
 - 🔒 **Secure**: Proper SSL/TLS configuration and API key management
 - 📝 **Rich Logging**: Structured logging with rotation and multiple levels
@@ -189,31 +192,69 @@ UNRAID_VERIFY_SSL=true  # true, false, or path to CA bundle
 
 ### System Information & Status
 - `get_system_info()` - Comprehensive system, OS, CPU, memory, hardware info
-- `get_array_status()` - Storage array status, capacity, and disk details  
+- `get_array_status()` - Storage array status, capacity, disk details, and parity check status
 - `get_unraid_variables()` - System variables and settings
 - `get_network_config()` - Network configuration and access URLs
 - `get_registration_info()` - Unraid registration details
 - `get_connect_settings()` - Unraid Connect configuration
+- `get_device_info()` - Device identification (GUID, model, timezone)
+- `list_plugins()` - Installed plugins with metadata
+- `get_flash_info()` - Flash drive details (GUID, vendor, product)
 
-### Docker Container Management  
-- `list_docker_containers()` - List all containers with caching options
+### Array Management
+- `manage_array_state(action)` - Start/stop array operations (START, STOP)
+- `mount_array_disk(disk_id)` - Mount a specific array disk
+- `unmount_array_disk(disk_id)` - Unmount a specific array disk
+- `clear_disk_statistics()` - Clear disk I/O statistics
+
+### Docker Container Management
+- `list_docker_containers()` - List all containers with update availability status
 - `manage_docker_container(id, action)` - Start/stop containers (idempotent)
 - `get_docker_container_details(identifier)` - Detailed container information
+- `list_docker_networks(skip_cache)` - List Docker networks with IPAM config
+- `get_container_update_statuses()` - Check which containers have updates available
 
 ### Virtual Machine Management
-- `list_vms()` - List all VMs and their states  
-- `manage_vm(id, action)` - VM lifecycle (start/stop/pause/resume/reboot)
+- `list_vms()` - List all VMs and their states
+- `manage_vm(vm_id, action)` - VM lifecycle (start/stop/pause/resume/reboot/reset/forceStop)
 - `get_vm_details(identifier)` - Detailed VM information
 
 ### Storage & File Systems
 - `get_shares_info()` - User shares information
 - `list_physical_disks()` - Physical disk discovery
-- `get_disk_details(disk_id)` - SMART data and detailed disk info
+- `get_disk_details(disk_id)` - SMART data, partitions, and detailed disk info
+
+### System Metrics (Real-time)
+- `get_system_metrics()` - Combined CPU and memory utilization
+- `get_cpu_utilization()` - Detailed CPU metrics with per-core breakdown
+- `get_memory_utilization()` - Memory and swap usage with formatted values
+
+### UPS Management
+- `list_ups_devices()` - List connected UPS devices with battery and power status
+- `get_ups_device(ups_id)` - Detailed UPS information
+- `get_ups_configuration()` - Current UPS daemon configuration
+- `configure_ups(...)` - Update UPS daemon settings
+
+### Parity Check Operations
+- `get_parity_history()` - Historical parity check results
+- `get_parity_status()` - Current parity check status
+- `start_parity_check(correct)` - Start parity check or parity sync
+- `pause_parity_check()` - Pause running parity check
+- `resume_parity_check()` - Resume paused parity check
+- `cancel_parity_check()` - Cancel running/paused parity check
+
+### Notification Management
+- `get_notifications_overview()` - Notification counts by severity
+- `list_notifications(type, offset, limit)` - Filtered notification listing
+- `create_notification(title, subject, description, importance)` - Create new notification
+- `archive_notification(id)` - Archive a single notification
+- `archive_notifications(ids)` - Archive multiple notifications
+- `archive_all_notifications(importance)` - Archive all notifications
+- `delete_notification(id, type)` - Delete a notification
+- `delete_archived_notifications()` - Delete all archived notifications
 
 ### Monitoring & Diagnostics
 - `health_check()` - Comprehensive system health assessment
-- `get_notifications_overview()` - Notification counts by severity
-- `list_notifications(type, offset, limit)` - Filtered notification listing
 - `list_available_log_files()` - Available system logs
 - `get_logs(path, tail_lines)` - Log file content retrieval
 
@@ -222,6 +263,7 @@ UNRAID_VERIFY_SSL=true  # true, false, or path to CA bundle
 - `get_rclone_config_form(provider)` - Configuration schemas
 - `create_rclone_remote(name, type, config)` - Create new remote
 - `delete_rclone_remote(name)` - Remove existing remote
+- `initiate_flash_backup(remote_name, source, dest)` - Backup flash drive to remote
 
 ### Real-time Subscriptions & Resources
 - `test_subscription_query(query)` - Test GraphQL subscriptions
@@ -242,10 +284,11 @@ UNRAID_VERIFY_SSL=true  # true, false, or path to CA bundle
 unraid-mcp/
 ├── unraid_mcp/               # Main package
 │   ├── main.py               # Entry point
+│   ├── server.py             # FastMCP server setup
 │   ├── config/               # Configuration management
 │   │   ├── settings.py       # Environment & settings
 │   │   └── logging.py        # Logging setup
-│   ├── core/                 # Core infrastructure  
+│   ├── core/                 # Core infrastructure
 │   │   ├── client.py         # GraphQL client
 │   │   ├── exceptions.py     # Custom exceptions
 │   │   └── types.py          # Shared data types
@@ -253,16 +296,18 @@ unraid-mcp/
 │   │   ├── manager.py        # WebSocket management
 │   │   ├── resources.py      # MCP resources
 │   │   └── diagnostics.py    # Diagnostic tools
-│   ├── tools/                # MCP tool categories
-│   │   ├── docker.py         # Container management
-│   │   ├── system.py         # System information
-│   │   ├── storage.py        # Storage & monitoring
-│   │   ├── health.py         # Health checks
-│   │   ├── virtualization.py # VM management
-│   │   └── rclone.py         # Cloud storage
-│   └── server.py             # FastMCP server setup
+│   └── tools/                # MCP tool categories (55+ tools)
+│       ├── docker.py         # Container & network management
+│       ├── health.py         # Health checks
+│       ├── metrics.py        # CPU/memory utilization
+│       ├── parity.py         # Parity check operations
+│       ├── rclone.py         # Cloud storage & flash backup
+│       ├── storage.py        # Storage, disks & notifications
+│       ├── system.py         # System info & array management
+│       ├── ups.py            # UPS monitoring & configuration
+│       └── virtualization.py # VM management
 ├── logs/                     # Log files (auto-created)
-├── dev.sh                    # Development script  
+├── dev.sh                    # Development script
 └── docker-compose.yml        # Docker Compose deployment
 ```
 
@@ -358,6 +403,24 @@ This project is a fork of the original [unraid-mcp](https://github.com/jmagar/un
 
 The following enhancements have been made since forking:
 
+#### New Tool Modules (29 new tools)
+- **System Metrics**: Real-time CPU/memory utilization monitoring (`metrics.py`)
+- **UPS Management**: Monitor and configure UPS devices (`ups.py`)
+- **Parity Operations**: Full parity check lifecycle control (`parity.py`)
+- **Array Management**: Start/stop array, mount/unmount disks
+- **Docker Networks**: List networks, check container update statuses
+- **Notification Management**: Create, archive, and delete notifications
+- **Flash Backup**: Initiate flash drive backups via RClone
+
+#### Schema Compatibility Updates
+- **Updated GraphQL Queries**: Compatible with latest Unraid API schema
+- **Nested Versions Structure**: Updated to `versions.core.unraid` path
+- **Enhanced Docker Info**: Added `isUpdateAvailable`, `isRebuildReady` fields
+- **Enhanced Array Status**: Added `isSpinning`, `parityCheckStatus` fields
+- **VM ID Updates**: Replaced deprecated `uuid` with `id` parameter
+- **Disk Details**: Added interface type, SMART status, partition info
+
+#### Infrastructure Improvements
 - **Python 3.12+**: Upgraded from Python 3.10 to 3.12+ (Docker uses 3.13)
 - **FastMCP 2.13.2**: Upgraded from FastMCP 2.11.2 to 2.13.2
 - **CI/CD Pipeline**: Added GitHub Actions workflow for automated Docker builds

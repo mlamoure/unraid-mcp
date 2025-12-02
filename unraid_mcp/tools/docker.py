@@ -96,6 +96,8 @@ def register_docker_tools(mcp: FastMCP) -> None:
               state
               status
               autoStart
+              isUpdateAvailable
+              isRebuildReady
             }
           }
         }
@@ -210,6 +212,8 @@ def register_docker_tools(mcp: FastMCP) -> None:
                           state
                           status
                           autoStart
+                          isUpdateAvailable
+                          isRebuildReady
                         }
                       }
                     }
@@ -274,6 +278,8 @@ def register_docker_tools(mcp: FastMCP) -> None:
                           state
                           status
                           autoStart
+                          isUpdateAvailable
+                          isRebuildReady
                         }
                       }
                     }
@@ -361,13 +367,15 @@ def register_docker_tools(mcp: FastMCP) -> None:
               created
               ports { ip privatePort publicPort type }
               sizeRootFs
-              labels # JSONObject
+              labels
               state
               status
               hostConfig { networkMode }
-              networkSettings # JSONObject
-              mounts # JSONObject array
+              networkSettings
+              mounts
               autoStart
+              isUpdateAvailable
+              isRebuildReady
         """
 
         # Fetch all containers first
@@ -416,5 +424,100 @@ def register_docker_tools(mcp: FastMCP) -> None:
         except Exception as e:
             logger.error(f"Error in get_docker_container_details: {e}", exc_info=True)
             raise ToolError(f"Failed to retrieve Docker container details: {str(e)}") from e
+
+    @mcp.tool()
+    async def list_docker_networks(skip_cache: bool = False) -> list[dict[str, Any]]:
+        """Lists all Docker networks on the Unraid system.
+
+        Args:
+            skip_cache: If True, bypass the cache and fetch fresh data
+
+        Returns:
+            List of Docker network information including:
+            - id, name, driver, scope
+            - IP address management (IPAM) configuration
+            - Connected containers
+            - Network options and labels
+        """
+        query = """
+        query ListDockerNetworks($skipCache: Boolean!) {
+          docker {
+            networks(skipCache: $skipCache) {
+              id
+              name
+              created
+              scope
+              driver
+              enableIPv6
+              internal
+              attachable
+              ingress
+              ipam {
+                driver
+                options
+                config {
+                  subnet
+                  ipRange
+                  gateway
+                  auxAddress
+                }
+              }
+              options
+              labels
+              containers {
+                name
+                endpointId
+                macAddress
+                ipv4Address
+                ipv6Address
+              }
+            }
+          }
+        }
+        """
+        variables = {"skipCache": skip_cache}
+        try:
+            logger.info(f"Executing list_docker_networks (skipCache={skip_cache})")
+            response_data = await make_graphql_request(query, variables)
+            if response_data.get("docker"):
+                networks = response_data["docker"].get("networks", [])
+                return list(networks) if isinstance(networks, list) else []
+            return []
+        except Exception as e:
+            logger.error(f"Error in list_docker_networks: {e}", exc_info=True)
+            raise ToolError(f"Failed to list Docker networks: {str(e)}") from e
+
+    @mcp.tool()
+    async def get_container_update_statuses() -> list[dict[str, Any]]:
+        """Retrieves update status for all Docker containers.
+
+        Returns a list of containers with their update availability status,
+        useful for identifying which containers have updates available.
+
+        Returns:
+            List of container update status items containing:
+            - name: Container name
+            - updateStatus: One of UP_TO_DATE, UPDATE_AVAILABLE, or REBUILD_READY
+        """
+        query = """
+        query GetContainerUpdateStatuses {
+          docker {
+            containerUpdateStatuses {
+              name
+              updateStatus
+            }
+          }
+        }
+        """
+        try:
+            logger.info("Executing get_container_update_statuses")
+            response_data = await make_graphql_request(query)
+            if response_data.get("docker"):
+                statuses = response_data["docker"].get("containerUpdateStatuses", [])
+                return list(statuses) if isinstance(statuses, list) else []
+            return []
+        except Exception as e:
+            logger.error(f"Error in get_container_update_statuses: {e}", exc_info=True)
+            raise ToolError(f"Failed to get container update statuses: {str(e)}") from e
 
     logger.info("Docker tools registered successfully")

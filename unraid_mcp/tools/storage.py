@@ -226,6 +226,10 @@ def register_storage_tools(mcp: FastMCP) -> None:
             serialNum
             size
             temperature
+            interfaceType
+            smartStatus
+            isSpinning
+            partitions { name fsType size }
           }
         }
         """
@@ -261,8 +265,6 @@ def register_storage_tools(mcp: FastMCP) -> None:
                 "interface_type": raw_disk.get("interfaceType"),
                 "smart_status": raw_disk.get("smartStatus"),
                 "is_spinning": raw_disk.get("isSpinning"),
-                "power_on_hours": raw_disk.get("powerOnHours"),
-                "reallocated_sectors": raw_disk.get("reallocatedSectorCount"),
                 "partition_count": len(raw_disk.get("partitions", [])),
                 "total_partition_size": format_bytes(
                     sum(p.get("size", 0) for p in raw_disk.get("partitions", []) if p.get("size"))
@@ -278,5 +280,210 @@ def register_storage_tools(mcp: FastMCP) -> None:
         except Exception as e:
             logger.error(f"Error in get_disk_details for {disk_id}: {e}", exc_info=True)
             raise ToolError(f"Failed to retrieve disk details for {disk_id}: {str(e)}") from e
+
+    @mcp.tool()
+    async def create_notification(
+        title: str,
+        subject: str,
+        description: str,
+        importance: str = "INFO",
+        link: str | None = None,
+    ) -> dict[str, Any]:
+        """Creates a new system notification.
+
+        Args:
+            title: Notification title (also known as 'event')
+            subject: Notification subject line
+            description: Detailed notification message
+            importance: Notification importance level (INFO, WARNING, ALERT). Default: INFO
+            link: Optional URL link associated with the notification
+
+        Returns:
+            Dict containing the created notification details
+        """
+        mutation = """
+        mutation CreateNotification($input: NotificationData!) {
+          createNotification(input: $input) {
+            id
+            title
+            subject
+            description
+            importance
+            link
+            type
+            timestamp
+            formattedTimestamp
+          }
+        }
+        """
+        notification_input: dict[str, Any] = {
+            "title": title,
+            "subject": subject,
+            "description": description,
+            "importance": importance.upper(),
+        }
+        if link:
+            notification_input["link"] = link
+
+        variables = {"input": notification_input}
+
+        try:
+            logger.info(f"Creating notification: title='{title}', importance={importance}")
+            response_data = await make_graphql_request(mutation, variables)
+            notification = response_data.get("createNotification", {})
+            return dict(notification) if isinstance(notification, dict) else {}
+        except Exception as e:
+            logger.error(f"Error in create_notification: {e}", exc_info=True)
+            raise ToolError(f"Failed to create notification: {str(e)}") from e
+
+    @mcp.tool()
+    async def archive_notification(notification_id: str) -> dict[str, Any]:
+        """Archives a single notification by ID.
+
+        Args:
+            notification_id: The ID of the notification to archive
+
+        Returns:
+            Dict containing the archived notification details
+        """
+        mutation = """
+        mutation ArchiveNotification($id: PrefixedID!) {
+          archiveNotification(id: $id) {
+            id
+            title
+            subject
+            importance
+            type
+            timestamp
+          }
+        }
+        """
+        variables = {"id": notification_id}
+
+        try:
+            logger.info(f"Archiving notification: {notification_id}")
+            response_data = await make_graphql_request(mutation, variables)
+            notification = response_data.get("archiveNotification", {})
+            return dict(notification) if isinstance(notification, dict) else {}
+        except Exception as e:
+            logger.error(f"Error in archive_notification: {e}", exc_info=True)
+            raise ToolError(f"Failed to archive notification: {str(e)}") from e
+
+    @mcp.tool()
+    async def archive_notifications(notification_ids: list[str]) -> dict[str, Any]:
+        """Archives multiple notifications by their IDs.
+
+        Args:
+            notification_ids: List of notification IDs to archive
+
+        Returns:
+            Dict containing updated notification overview counts
+        """
+        mutation = """
+        mutation ArchiveNotifications($ids: [PrefixedID!]!) {
+          archiveNotifications(ids: $ids) {
+            unread { info warning alert total }
+            archive { info warning alert total }
+          }
+        }
+        """
+        variables = {"ids": notification_ids}
+
+        try:
+            logger.info(f"Archiving {len(notification_ids)} notifications")
+            response_data = await make_graphql_request(mutation, variables)
+            overview = response_data.get("archiveNotifications", {})
+            return dict(overview) if isinstance(overview, dict) else {}
+        except Exception as e:
+            logger.error(f"Error in archive_notifications: {e}", exc_info=True)
+            raise ToolError(f"Failed to archive notifications: {str(e)}") from e
+
+    @mcp.tool()
+    async def archive_all_notifications(importance: str | None = None) -> dict[str, Any]:
+        """Archives all unread notifications, optionally filtered by importance.
+
+        Args:
+            importance: Optional importance level to filter (INFO, WARNING, ALERT).
+                       If not provided, archives all notifications.
+
+        Returns:
+            Dict containing updated notification overview counts
+        """
+        mutation = """
+        mutation ArchiveAllNotifications($importance: NotificationImportance) {
+          archiveAll(importance: $importance) {
+            unread { info warning alert total }
+            archive { info warning alert total }
+          }
+        }
+        """
+        variables: dict[str, Any] = {}
+        if importance:
+            variables["importance"] = importance.upper()
+
+        try:
+            filter_msg = f" with importance={importance}" if importance else ""
+            logger.info(f"Archiving all notifications{filter_msg}")
+            response_data = await make_graphql_request(mutation, variables)
+            overview = response_data.get("archiveAll", {})
+            return dict(overview) if isinstance(overview, dict) else {}
+        except Exception as e:
+            logger.error(f"Error in archive_all_notifications: {e}", exc_info=True)
+            raise ToolError(f"Failed to archive all notifications: {str(e)}") from e
+
+    @mcp.tool()
+    async def delete_notification(notification_id: str, notification_type: str) -> dict[str, Any]:
+        """Deletes a notification by ID and type.
+
+        Args:
+            notification_id: The ID of the notification to delete
+            notification_type: The type of notification (UNREAD or ARCHIVE)
+
+        Returns:
+            Dict containing updated notification overview counts
+        """
+        mutation = """
+        mutation DeleteNotification($id: PrefixedID!, $type: NotificationType!) {
+          deleteNotification(id: $id, type: $type) {
+            unread { info warning alert total }
+            archive { info warning alert total }
+          }
+        }
+        """
+        variables = {"id": notification_id, "type": notification_type.upper()}
+
+        try:
+            logger.info(f"Deleting notification: {notification_id} (type={notification_type})")
+            response_data = await make_graphql_request(mutation, variables)
+            overview = response_data.get("deleteNotification", {})
+            return dict(overview) if isinstance(overview, dict) else {}
+        except Exception as e:
+            logger.error(f"Error in delete_notification: {e}", exc_info=True)
+            raise ToolError(f"Failed to delete notification: {str(e)}") from e
+
+    @mcp.tool()
+    async def delete_archived_notifications() -> dict[str, Any]:
+        """Deletes all archived notifications from the server.
+
+        Returns:
+            Dict containing updated notification overview counts
+        """
+        mutation = """
+        mutation DeleteArchivedNotifications {
+          deleteArchivedNotifications {
+            unread { info warning alert total }
+            archive { info warning alert total }
+          }
+        }
+        """
+
+        try:
+            logger.info("Deleting all archived notifications")
+            response_data = await make_graphql_request(mutation)
+            overview = response_data.get("deleteArchivedNotifications", {})
+            return dict(overview) if isinstance(overview, dict) else {}
+        except Exception as e:
+            logger.error(f"Error in delete_archived_notifications: {e}", exc_info=True)
+            raise ToolError(f"Failed to delete archived notifications: {str(e)}") from e
 
     logger.info("Storage tools registered successfully")

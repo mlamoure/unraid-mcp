@@ -46,3 +46,23 @@ jobs:
           cache-from: type=registry,ref=${{ env.GITEA_REGISTRY }}/mike/${{ env.IMAGE_NAME }}-cache:latest
           cache-to: type=registry,ref=${{ env.GITEA_REGISTRY }}/mike/${{ env.IMAGE_NAME }}-cache:latest,mode=max
           platforms: linux/amd64
+
+      - name: Trigger stack redeployment via Semaphore
+        run: |
+          # Trigger restart_stack.yml template (ID: 17) on Semaphore
+          response=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.SEMAPHORE_API_URL }}/api/project/2/tasks" \
+            -H "Authorization: Bearer ${{ secrets.SEMAPHORE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "template_id": 17,
+              "environment": "{\"docker_host\": \"common-services.home.mikelamoureux.net\", \"restart_stack\": \"mcp-gateway\"}"
+            }')
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "Response: $body"
+          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "Successfully triggered redeployment of mcp-gateway stack on common-services"
+          else
+            echo "Failed to trigger redeployment (HTTP $http_code)"
+            exit 1
+          fi
