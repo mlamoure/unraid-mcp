@@ -10,6 +10,7 @@ def main() -> None:
     """Main entry point for the Unraid MCP Server."""
     try:
         from .server import run_server
+
         run_server()
     except KeyboardInterrupt:
         print("\nServer stopped by user")

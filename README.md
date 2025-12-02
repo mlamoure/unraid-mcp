@@ -1,7 +1,8 @@
 # 🚀 Unraid MCP Server
 
-[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![FastMCP](https://img.shields.io/badge/FastMCP-2.11.2+-green.svg)](https://github.com/jlowin/fastmcp)
+[![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![FastMCP](https://img.shields.io/badge/FastMCP-2.13.2+-green.svg)](https://github.com/jlowin/fastmcp)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://ghcr.io/jmagar/unraid-mcp)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **A powerful MCP (Model Context Protocol) server that provides comprehensive tools to interact with an Unraid server's GraphQL API.**
@@ -34,37 +35,48 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose (recommended)
-- OR Python 3.10+ with [uv](https://github.com/astral-sh/uv) for development
+- Docker (recommended) OR Python 3.12+ with [uv](https://github.com/astral-sh/uv)
 - Unraid server with GraphQL API enabled
 
-### 1. Clone Repository
+### Using Pre-built Image (Recommended)
+
+**Docker Run:**
 ```bash
+docker run -d \
+  --name unraid-mcp \
+  --restart unless-stopped \
+  -p 6970:6970 \
+  -e UNRAID_API_URL="https://your-unraid-server/graphql" \
+  -e UNRAID_API_KEY="your_api_key" \
+  ghcr.io/jmagar/unraid-mcp:latest
+```
+
+**Docker Compose:**
+```yaml
+services:
+  unraid-mcp:
+    image: ghcr.io/jmagar/unraid-mcp:latest
+    # Alternative: git.home.mikelamoureux.net/mike/unraid-mcp:latest
+    restart: unless-stopped
+    ports:
+      - "6970:6970"
+    environment:
+      UNRAID_API_URL: "https://your-unraid-server/graphql"
+      UNRAID_API_KEY: "your_api_key"
+```
+
+### Building from Source (Development)
+```bash
+# Clone repository
 git clone https://github.com/jmagar/unraid-mcp
 cd unraid-mcp
-```
 
-### 2. Configure Environment
-```bash
-cp .env.example .env
-# Edit .env with your Unraid API details
-```
+# Option 1: Docker build
+docker build -t unraid-mcp .
+docker run -d -p 6970:6970 -e UNRAID_API_URL="..." -e UNRAID_API_KEY="..." unraid-mcp
 
-### 3. Deploy with Docker (Recommended)
-```bash
-# Start with Docker Compose
-docker compose up -d
-
-# View logs
-docker compose logs -f unraid-mcp
-```
-
-### OR 3. Run for Development
-```bash
-# Install dependencies
+# Option 2: Local development
 uv sync
-
-# Run development server
 ./dev.sh
 ```
 
@@ -74,34 +86,42 @@ uv sync
 
 ### 🐳 Docker Deployment (Recommended)
 
-The easiest way to run the Unraid MCP Server is with Docker:
+The easiest way to run the Unraid MCP Server is with the pre-built Docker image:
 
 ```bash
-# Clone repository
-git clone https://github.com/jmagar/unraid-mcp
-cd unraid-mcp
-
-# Set required environment variables
-export UNRAID_API_URL="http://your-unraid-server/graphql"
-export UNRAID_API_KEY="your_api_key_here"
-
-# Deploy with Docker Compose
-docker compose up -d
-
-# View logs
-docker compose logs -f unraid-mcp
-```
-
-#### Manual Docker Build
-```bash
-# Build and run manually
-docker build -t unraid-mcp-server .
-docker run -d --name unraid-mcp \
+# Using Docker Run
+docker run -d \
+  --name unraid-mcp \
   --restart unless-stopped \
   -p 6970:6970 \
-  -e UNRAID_API_URL="http://your-unraid-server/graphql" \
+  -e UNRAID_API_URL="https://your-unraid-server/graphql" \
   -e UNRAID_API_KEY="your_api_key_here" \
-  unraid-mcp-server
+  ghcr.io/jmagar/unraid-mcp:latest
+
+# View logs
+docker logs -f unraid-mcp
+```
+
+#### Using Docker Compose
+
+Create a `docker-compose.yml`:
+```yaml
+services:
+  unraid-mcp:
+    image: ghcr.io/jmagar/unraid-mcp:latest
+    restart: unless-stopped
+    ports:
+      - "6970:6970"
+    environment:
+      UNRAID_API_URL: "https://your-unraid-server/graphql"
+      UNRAID_API_KEY: "your_api_key_here"
+      UNRAID_MCP_LOG_LEVEL: "INFO"
+```
+
+Then run:
+```bash
+docker compose up -d
+docker compose logs -f unraid-mcp
 ```
 
 ### 🔧 Development Installation
@@ -116,7 +136,7 @@ cd unraid-mcp
 # Install dependencies with uv
 uv sync
 
-# Install development dependencies  
+# Install development dependencies
 uv sync --group dev
 
 # Configure environment

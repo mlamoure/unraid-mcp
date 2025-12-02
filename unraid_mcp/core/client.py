@@ -15,7 +15,7 @@ from ..core.exceptions import ToolError
 
 # HTTP timeout configuration
 DEFAULT_TIMEOUT = httpx.Timeout(10.0, read=30.0, connect=5.0)
-DISK_TIMEOUT = httpx.Timeout(10.0, read=TIMEOUT_CONFIG['disk_operations'], connect=5.0)
+DISK_TIMEOUT = httpx.Timeout(10.0, read=TIMEOUT_CONFIG["disk_operations"], connect=5.0)
 
 
 def is_idempotent_error(error_message: str, operation: str) -> bool:
@@ -31,18 +31,18 @@ def is_idempotent_error(error_message: str, operation: str) -> bool:
     error_lower = error_message.lower()
 
     # Docker container operation patterns
-    if operation == 'start':
+    if operation == "start":
         return (
-            'already started' in error_lower or
-            'container already running' in error_lower or
-            'http code 304' in error_lower
+            "already started" in error_lower
+            or "container already running" in error_lower
+            or "http code 304" in error_lower
         )
-    elif operation == 'stop':
+    elif operation == "stop":
         return (
-            'already stopped' in error_lower or
-            'container already stopped' in error_lower or
-            'container not running' in error_lower or
-            'http code 304' in error_lower
+            "already stopped" in error_lower
+            or "container already stopped" in error_lower
+            or "container not running" in error_lower
+            or "http code 304" in error_lower
         )
 
     return False
@@ -52,7 +52,7 @@ async def make_graphql_request(
     query: str,
     variables: dict[str, Any] | None = None,
     custom_timeout: httpx.Timeout | None = None,
-    operation_context: dict[str, str] | None = None
+    operation_context: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Make GraphQL requests to the Unraid API.
 
@@ -78,7 +78,7 @@ async def make_graphql_request(
     headers = {
         "Content-Type": "application/json",
         "X-API-Key": UNRAID_API_KEY,
-        "User-Agent": "UnraidMCPServer/0.1.0"  # Custom user-agent
+        "User-Agent": "UnraidMCPServer/0.1.0",  # Custom user-agent
     }
 
     payload: dict[str, Any] = {"query": query}
@@ -99,19 +99,23 @@ async def make_graphql_request(
 
             response_data = response.json()
             if "errors" in response_data and response_data["errors"]:
-                error_details = "; ".join([err.get("message", str(err)) for err in response_data["errors"]])
+                error_details = "; ".join(
+                    [err.get("message", str(err)) for err in response_data["errors"]]
+                )
 
                 # Check if this is an idempotent error that should be treated as success
-                if operation_context and operation_context.get('operation'):
-                    operation = operation_context['operation']
+                if operation_context and operation_context.get("operation"):
+                    operation = operation_context["operation"]
                     if is_idempotent_error(error_details, operation):
-                        logger.warning(f"Idempotent operation '{operation}' - treating as success: {error_details}")
+                        logger.warning(
+                            f"Idempotent operation '{operation}' - treating as success: {error_details}"
+                        )
                         # Return a success response with the current state information
                         return {
                             "idempotent_success": True,
                             "operation": operation,
                             "message": error_details,
-                            "original_errors": response_data["errors"]
+                            "original_errors": response_data["errors"],
                         }
 
                 logger.error(f"GraphQL API returned errors: {response_data['errors']}")

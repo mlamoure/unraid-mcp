@@ -56,7 +56,9 @@ def register_vm_tools(mcp: FastMCP) -> None:
             logger.error(f"Error in list_vms: {e}", exc_info=True)
             error_msg = str(e)
             if "VMs are not available" in error_msg:
-                raise ToolError("VMs are not available on this Unraid server. This could mean: 1) VM support is not enabled, 2) VM service is not running, or 3) no VMs are configured. Check Unraid VM settings.") from e
+                raise ToolError(
+                    "VMs are not available on this Unraid server. This could mean: 1) VM support is not enabled, 2) VM service is not running, or 3) no VMs are configured. Check Unraid VM settings."
+                ) from e
             else:
                 raise ToolError(f"Failed to list virtual machines: {error_msg}") from e
 
@@ -71,7 +73,15 @@ def register_vm_tools(mcp: FastMCP) -> None:
         Returns:
             Dict containing operation success status and details
         """
-        valid_actions = ["start", "stop", "pause", "resume", "forceStop", "reboot", "reset"] # Added reset operation
+        valid_actions = [
+            "start",
+            "stop",
+            "pause",
+            "resume",
+            "forceStop",
+            "reboot",
+            "reset",
+        ]  # Added reset operation
         if action not in valid_actions:
             logger.warning(f"Invalid action '{action}' for manage_vm")
             raise ToolError(f"Invalid action. Must be one of {valid_actions}.")
@@ -137,15 +147,22 @@ def register_vm_tools(mcp: FastMCP) -> None:
 
                 if vms:
                     for vm_data in vms:
-                        if (vm_data.get("uuid") == vm_identifier or
-                            vm_data.get("id") == vm_identifier or
-                            vm_data.get("name") == vm_identifier):
+                        if (
+                            vm_data.get("uuid") == vm_identifier
+                            or vm_data.get("id") == vm_identifier
+                            or vm_data.get("name") == vm_identifier
+                        ):
                             logger.info(f"Found VM {vm_identifier}")
                             return dict(vm_data) if isinstance(vm_data, dict) else {}
 
                     logger.warning(f"VM with identifier '{vm_identifier}' not found.")
-                    available_vms = [f"{vm.get('name')} (UUID: {vm.get('uuid')}, ID: {vm.get('id')})" for vm in vms]
-                    raise ToolError(f"VM '{vm_identifier}' not found. Available VMs: {', '.join(available_vms)}")
+                    available_vms = [
+                        f"{vm.get('name')} (UUID: {vm.get('uuid')}, ID: {vm.get('id')})"
+                        for vm in vms
+                    ]
+                    raise ToolError(
+                        f"VM '{vm_identifier}' not found. Available VMs: {', '.join(available_vms)}"
+                    )
                 else:
                     raise ToolError("No VMs available or VMs not accessible")
             else:
@@ -155,7 +172,9 @@ def register_vm_tools(mcp: FastMCP) -> None:
             logger.error(f"Error in get_vm_details: {e}", exc_info=True)
             error_msg = str(e)
             if "VMs are not available" in error_msg:
-                raise ToolError("VMs are not available on this Unraid server. This could mean: 1) VM support is not enabled, 2) VM service is not running, or 3) no VMs are configured. Check Unraid VM settings.") from e
+                raise ToolError(
+                    "VMs are not available on this Unraid server. This could mean: 1) VM support is not enabled, 2) VM service is not running, or 3) no VMs are configured. Check Unraid VM settings."
+                ) from e
             else:
                 raise ToolError(f"Failed to retrieve VM details: {error_msg}") from e
 

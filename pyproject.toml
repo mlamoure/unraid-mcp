@@ -11,40 +11,39 @@ authors = [
 ]
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 keywords = ["unraid", "mcp", "graphql", "api", "server"]
 
 dependencies = [
     "python-dotenv>=1.1.1",
-    "fastmcp>=2.11.2",
+    "fastmcp>=2.13.2",
     "httpx>=0.28.1",
     "fastapi>=0.116.1",
     "uvicorn>=0.35.0",
-    "websockets>=13.1,<14.0",
+    "websockets>=14.0",
     "rich>=14.1.0",
     "pytz>=2025.2",
-    "mypy>=1.17.1",
-    "ruff>=0.12.8",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.0.0",
     "black>=25.1.0",
     "ruff>=0.12.8",
     "mypy>=1.17.1",
     "types-python-dateutil",
+    "types-pytz>=2025.2.0.20250809",
 ]
 
 [project.urls]
@@ -60,7 +59,7 @@ only-include = ["unraid_mcp/"]
 
 [tool.black]
 line-length = 100
-target-version = ['py310']
+target-version = ['py312', 'py313', 'py314']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -77,7 +76,7 @@ extend-exclude = '''
 '''
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
@@ -100,7 +99,7 @@ ignore = [
 "__init__.py" = ["F401"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true
@@ -149,7 +148,3 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
 ]
 
-[dependency-groups]
-dev = [
-    "types-pytz>=2025.2.0.20250809",
-]

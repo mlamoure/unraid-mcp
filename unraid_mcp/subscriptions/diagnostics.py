@@ -46,7 +46,10 @@ def register_diagnostic_tools(mcp: FastMCP) -> None:
             # Build WebSocket URL
             if not UNRAID_API_URL:
                 raise ToolError("UNRAID_API_URL is not configured")
-            ws_url = UNRAID_API_URL.replace("https://", "wss://").replace("http://", "ws://") + "/graphql"
+            ws_url = (
+                UNRAID_API_URL.replace("https://", "wss://").replace("http://", "ws://")
+                + "/graphql"
+            )
 
             # Test connection
             async with websockets.connect(
@@ -54,14 +57,18 @@ def register_diagnostic_tools(mcp: FastMCP) -> None:
                 subprotocols=[Subprotocol("graphql-transport-ws"), Subprotocol("graphql-ws")],
                 ssl=UNRAID_VERIFY_SSL,
                 ping_interval=30,
-                ping_timeout=10
+                ping_timeout=10,
             ) as websocket:
 
                 # Send connection init
-                await websocket.send(json.dumps({
-                    "type": "connection_init",
-                    "payload": {"Authorization": f"Bearer {UNRAID_API_KEY}"}
-                }))
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "connection_init",
+                            "payload": {"Authorization": f"Bearer {UNRAID_API_KEY}"},
+                        }
+                    )
+                )
 
                 # Wait for ack
                 response = await websocket.recv()
@@ -71,11 +78,11 @@ def register_diagnostic_tools(mcp: FastMCP) -> None:
                     return {"error": f"Connection failed: {init_response}"}
 
                 # Send subscription
-                await websocket.send(json.dumps({
-                    "id": "test",
-                    "type": "start",
-                    "payload": {"query": subscription_query}
-                }))
+                await websocket.send(
+                    json.dumps(
+                        {"id": "test", "type": "start", "payload": {"query": subscription_query}}
+                    )
+                )
 
                 # Wait for response with timeout
                 try:
@@ -83,26 +90,19 @@ def register_diagnostic_tools(mcp: FastMCP) -> None:
                     result = json.loads(response)
 
                     logger.info(f"[TEST_SUBSCRIPTION] Response: {result}")
-                    return {
-                        "success": True,
-                        "response": result,
-                        "query_tested": subscription_query
-                    }
+                    return {"success": True, "response": result, "query_tested": subscription_query}
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     return {
                         "success": True,
                         "response": "No immediate response (subscriptions may only send data on changes)",
                         "query_tested": subscription_query,
-                        "note": "Connection successful, subscription may be waiting for events"
+                        "note": "Connection successful, subscription may be waiting for events",
                     }
 
         except Exception as e:
             logger.error(f"[TEST_SUBSCRIPTION] Error: {e}", exc_info=True)
-            return {
-                "error": str(e),
-                "query_tested": subscription_query
-            }
+            return {"error": str(e), "query_tested": subscription_query}
 
     @mcp.tool()
     async def diagnose_subscriptions() -> dict[str, Any]:
@@ -133,29 +133,33 @@ def register_diagnostic_tools(mcp: FastMCP) -> None:
                     "max_reconnect_attempts": subscription_manager.max_reconnect_attempts,
                     "unraid_api_url": UNRAID_API_URL[:50] + "..." if UNRAID_API_URL else None,
                     "api_key_configured": bool(UNRAID_API_KEY),
-                    "websocket_url": None
+                    "websocket_url": None,
                 },
                 "subscriptions": status,
                 "summary": {
                     "total_configured": len(subscription_manager.subscription_configs),
-                    "auto_start_count": sum(1 for s in subscription_manager.subscription_configs.values() if s.get("auto_start")),
+                    "auto_start_count": sum(
+                        1
+                        for s in subscription_manager.subscription_configs.values()
+                        if s.get("auto_start")
+                    ),
                     "active_count": len(subscription_manager.active_subscriptions),
                     "with_data": len(subscription_manager.resource_data),
                     "in_error_state": 0,
-                    "connection_issues": connection_issues
-                }
+                    "connection_issues": connection_issues,
+                },
             }
 
             # Calculate WebSocket URL
             if UNRAID_API_URL:
-                if UNRAID_API_URL.startswith('https://'):
-                    ws_url = 'wss://' + UNRAID_API_URL[len('https://'):]
-                elif UNRAID_API_URL.startswith('http://'):
-                    ws_url = 'ws://' + UNRAID_API_URL[len('http://'):]
+                if UNRAID_API_URL.startswith("https://"):
+                    ws_url = "wss://" + UNRAID_API_URL[len("https://") :]
+                elif UNRAID_API_URL.startswith("http://"):
+                    ws_url = "ws://" + UNRAID_API_URL[len("http://") :]
                 else:
                     ws_url = UNRAID_API_URL
-                if not ws_url.endswith('/graphql'):
-                    ws_url = ws_url.rstrip('/') + '/graphql'
+                if not ws_url.endswith("/graphql"):
+                    ws_url = ws_url.rstrip("/") + "/graphql"
                 diagnostic_info["environment"]["websocket_url"] = ws_url
 
             # Analyze issues
@@ -167,42 +171,57 @@ def register_diagnostic_tools(mcp: FastMCP) -> None:
                     diagnostic_info["summary"]["in_error_state"] += 1
 
                 if runtime.get("last_error"):
-                    connection_issues.append({
-                        "subscription": sub_name,
-                        "state": connection_state,
-                        "error": runtime["last_error"]
-                    })
+                    connection_issues.append(
+                        {
+                            "subscription": sub_name,
+                            "state": connection_state,
+                            "error": runtime["last_error"],
+                        }
+                    )
 
             # Add troubleshooting recommendations
             recommendations: list[str] = []
 
             if not diagnostic_info["environment"]["api_key_configured"]:
-                recommendations.append("CRITICAL: No API key configured. Set UNRAID_API_KEY environment variable.")
+                recommendations.append(
+                    "CRITICAL: No API key configured. Set UNRAID_API_KEY environment variable."
+                )
 
             if diagnostic_info["summary"]["in_error_state"] > 0:
-                recommendations.append("Some subscriptions are in error state. Check 'connection_issues' for details.")
+                recommendations.append(
+                    "Some subscriptions are in error state. Check 'connection_issues' for details."
+                )
 
             if diagnostic_info["summary"]["with_data"] == 0:
-                recommendations.append("No subscriptions have received data yet. Check WebSocket connectivity and authentication.")
+                recommendations.append(
+                    "No subscriptions have received data yet. Check WebSocket connectivity and authentication."
+                )
 
-            if diagnostic_info["summary"]["active_count"] < diagnostic_info["summary"]["auto_start_count"]:
-                recommendations.append("Not all auto-start subscriptions are active. Check server startup logs.")
+            if (
+                diagnostic_info["summary"]["active_count"]
+                < diagnostic_info["summary"]["auto_start_count"]
+            ):
+                recommendations.append(
+                    "Not all auto-start subscriptions are active. Check server startup logs."
+                )
 
             diagnostic_info["troubleshooting"] = {
                 "recommendations": recommendations,
                 "log_commands": [
                     "Check server logs for [WEBSOCKET:*], [AUTH:*], [SUBSCRIPTION:*] prefixed messages",
                     "Look for connection timeout or authentication errors",
-                    "Verify Unraid API URL is accessible and supports GraphQL subscriptions"
+                    "Verify Unraid API URL is accessible and supports GraphQL subscriptions",
                 ],
                 "next_steps": [
                     "If authentication fails: Verify API key has correct permissions",
                     "If connection fails: Check network connectivity to Unraid server",
-                    "If no data received: Enable DEBUG logging to see detailed protocol messages"
-                ]
+                    "If no data received: Enable DEBUG logging to see detailed protocol messages",
+                ],
             }
 
-            logger.info(f"[DIAGNOSTIC] Completed. Active: {diagnostic_info['summary']['active_count']}, With data: {diagnostic_info['summary']['with_data']}, Errors: {diagnostic_info['summary']['in_error_state']}")
+            logger.info(
+                f"[DIAGNOSTIC] Completed. Active: {diagnostic_info['summary']['active_count']}, With data: {diagnostic_info['summary']['with_data']}, Errors: {diagnostic_info['summary']['in_error_state']}"
+            )
             return diagnostic_info
 
         except Exception as e:

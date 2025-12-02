@@ -45,29 +45,37 @@ async def _get_system_info() -> dict[str, Any]:
 
         # Process for human-readable output
         summary: dict[str, Any] = {}
-        if raw_info.get('os'):
-            os_info = raw_info['os']
-            summary['os'] = f"{os_info.get('distro', '')} {os_info.get('release', '')} ({os_info.get('platform', '')}, {os_info.get('arch', '')})"
-            summary['hostname'] = os_info.get('hostname')
-            summary['uptime'] = os_info.get('uptime')
+        if raw_info.get("os"):
+            os_info = raw_info["os"]
+            summary["os"] = (
+                f"{os_info.get('distro', '')} {os_info.get('release', '')} ({os_info.get('platform', '')}, {os_info.get('arch', '')})"
+            )
+            summary["hostname"] = os_info.get("hostname")
+            summary["uptime"] = os_info.get("uptime")
 
-        if raw_info.get('cpu'):
-            cpu_info = raw_info['cpu']
-            summary['cpu'] = f"{cpu_info.get('manufacturer', '')} {cpu_info.get('brand', '')} ({cpu_info.get('cores')} cores, {cpu_info.get('threads')} threads)"
+        if raw_info.get("cpu"):
+            cpu_info = raw_info["cpu"]
+            summary["cpu"] = (
+                f"{cpu_info.get('manufacturer', '')} {cpu_info.get('brand', '')} ({cpu_info.get('cores')} cores, {cpu_info.get('threads')} threads)"
+            )
 
-        if raw_info.get('memory') and raw_info['memory'].get('layout'):
-            mem_layout = raw_info['memory']['layout']
-            summary['memory_layout_details'] = []  # Renamed for clarity
+        if raw_info.get("memory") and raw_info["memory"].get("layout"):
+            mem_layout = raw_info["memory"]["layout"]
+            summary["memory_layout_details"] = []  # Renamed for clarity
             # The API is not returning 'size' for individual sticks in the layout, even if queried.
             # So, we cannot calculate total from layout currently.
             for stick in mem_layout:
                 # stick_size = stick.get('size') # This is None in the actual API response
-                summary['memory_layout_details'].append(
+                summary["memory_layout_details"].append(
                     f"Bank {stick.get('bank', '?')}: Type {stick.get('type', '?')}, Speed {stick.get('clockSpeed', '?')}MHz, Manufacturer: {stick.get('manufacturer','?')}, Part: {stick.get('partNum', '?')}"
                 )
-            summary['memory_summary'] = "Stick layout details retrieved. Overall total/used/free memory stats are unavailable due to API limitations (Int overflow or data not provided by API)."
+            summary["memory_summary"] = (
+                "Stick layout details retrieved. Overall total/used/free memory stats are unavailable due to API limitations (Int overflow or data not provided by API)."
+            )
         else:
-            summary['memory_summary'] = "Memory information (layout or stats) not available or failed to retrieve."
+            summary["memory_summary"] = (
+                "Memory information (layout or stats) not available or failed to retrieve."
+            )
 
         # Include a key for the full details if needed by an LLM for deeper dives
         return {"summary": summary, "details": raw_info}
@@ -103,30 +111,35 @@ async def _get_array_status() -> dict[str, Any]:
             raise ToolError("No array information returned from Unraid API")
 
         summary: dict[str, Any] = {}
-        summary['state'] = raw_array_info.get('state')
+        summary["state"] = raw_array_info.get("state")
 
-        if raw_array_info.get('capacity') and raw_array_info['capacity'].get('kilobytes'):
-            kb_cap = raw_array_info['capacity']['kilobytes']
+        if raw_array_info.get("capacity") and raw_array_info["capacity"].get("kilobytes"):
+            kb_cap = raw_array_info["capacity"]["kilobytes"]
+
             # Helper to format KB into TB/GB/MB
             def format_kb(k: Any) -> str:
                 if k is None:
                     return "N/A"
-                k = int(k) # Values are strings in SDL for PrefixedID containing types like capacity
-                if k >= 1024*1024*1024:
+                k = int(
+                    k
+                )  # Values are strings in SDL for PrefixedID containing types like capacity
+                if k >= 1024 * 1024 * 1024:
                     return f"{k / (1024*1024*1024):.2f} TB"
-                if k >= 1024*1024:
+                if k >= 1024 * 1024:
                     return f"{k / (1024*1024):.2f} GB"
                 if k >= 1024:
                     return f"{k / 1024:.2f} MB"
                 return f"{k} KB"
 
-            summary['capacity_total'] = format_kb(kb_cap.get('total'))
-            summary['capacity_used'] = format_kb(kb_cap.get('used'))
-            summary['capacity_free'] = format_kb(kb_cap.get('free'))
+            summary["capacity_total"] = format_kb(kb_cap.get("total"))
+            summary["capacity_used"] = format_kb(kb_cap.get("used"))
+            summary["capacity_free"] = format_kb(kb_cap.get("free"))
 
-        summary['num_parity_disks'] = len(raw_array_info.get('parities', []))
-        summary['num_data_disks'] = len(raw_array_info.get('disks', []))
-        summary['num_cache_pools'] = len(raw_array_info.get('caches', [])) # Note: caches are pools, not individual cache disks
+        summary["num_parity_disks"] = len(raw_array_info.get("parities", []))
+        summary["num_data_disks"] = len(raw_array_info.get("disks", []))
+        summary["num_cache_pools"] = len(
+            raw_array_info.get("caches", [])
+        )  # Note: caches are pools, not individual cache disks
 
         # Enhanced: Add disk health summary
         def analyze_disk_health(disks: list[dict[str, Any]], disk_type: str) -> dict[str, int]:
@@ -135,48 +148,50 @@ async def _get_array_status() -> dict[str, Any]:
                 return {}
 
             health_counts = {
-                'healthy': 0,
-                'failed': 0,
-                'missing': 0,
-                'new': 0,
-                'warning': 0,
-                'unknown': 0
+                "healthy": 0,
+                "failed": 0,
+                "missing": 0,
+                "new": 0,
+                "warning": 0,
+                "unknown": 0,
             }
 
             for disk in disks:
-                status = disk.get('status', '').upper()
-                warning = disk.get('warning')
-                critical = disk.get('critical')
+                status = disk.get("status", "").upper()
+                warning = disk.get("warning")
+                critical = disk.get("critical")
 
-                if status == 'DISK_OK':
+                if status == "DISK_OK":
                     if warning or critical:
-                        health_counts['warning'] += 1
+                        health_counts["warning"] += 1
                     else:
-                        health_counts['healthy'] += 1
-                elif status in ['DISK_DSBL', 'DISK_INVALID']:
-                    health_counts['failed'] += 1
-                elif status == 'DISK_NP':
-                    health_counts['missing'] += 1
-                elif status == 'DISK_NEW':
-                    health_counts['new'] += 1
+                        health_counts["healthy"] += 1
+                elif status in ["DISK_DSBL", "DISK_INVALID"]:
+                    health_counts["failed"] += 1
+                elif status == "DISK_NP":
+                    health_counts["missing"] += 1
+                elif status == "DISK_NEW":
+                    health_counts["new"] += 1
                 else:
-                    health_counts['unknown'] += 1
+                    health_counts["unknown"] += 1
 
             return health_counts
 
         # Analyze health for each disk type
         health_summary = {}
-        if raw_array_info.get('parities'):
-            health_summary['parity_health'] = analyze_disk_health(raw_array_info['parities'], 'parity')
-        if raw_array_info.get('disks'):
-            health_summary['data_health'] = analyze_disk_health(raw_array_info['disks'], 'data')
-        if raw_array_info.get('caches'):
-            health_summary['cache_health'] = analyze_disk_health(raw_array_info['caches'], 'cache')
+        if raw_array_info.get("parities"):
+            health_summary["parity_health"] = analyze_disk_health(
+                raw_array_info["parities"], "parity"
+            )
+        if raw_array_info.get("disks"):
+            health_summary["data_health"] = analyze_disk_health(raw_array_info["disks"], "data")
+        if raw_array_info.get("caches"):
+            health_summary["cache_health"] = analyze_disk_health(raw_array_info["caches"], "cache")
 
         # Overall array health assessment
-        total_failed = sum(h.get('failed', 0) for h in health_summary.values())
-        total_missing = sum(h.get('missing', 0) for h in health_summary.values())
-        total_warning = sum(h.get('warning', 0) for h in health_summary.values())
+        total_failed = sum(h.get("failed", 0) for h in health_summary.values())
+        total_missing = sum(h.get("missing", 0) for h in health_summary.values())
+        total_warning = sum(h.get("warning", 0) for h in health_summary.values())
 
         if total_failed > 0:
             overall_health = "CRITICAL"
@@ -187,8 +202,8 @@ async def _get_array_status() -> dict[str, Any]:
         else:
             overall_health = "HEALTHY"
 
-        summary['overall_health'] = overall_health
-        summary['health_summary'] = health_summary
+        summary["overall_health"] = overall_health
+        summary["health_summary"] = health_summary
 
         return {"summary": summary, "details": raw_array_info}
 
@@ -283,7 +298,7 @@ def register_system_tools(mcp: FastMCP) -> None:
                     # Look for connect-related keys in the unified settings
                     connect_settings = {}
                     for key, value in values.items():
-                        if 'connect' in key.lower() or key in ['accessType', 'forwardType', 'port']:
+                        if "connect" in key.lower() or key in ["accessType", "forwardType", "port"]:
                             connect_settings[key] = value
                     return connect_settings if connect_settings else values
                 return dict(values) if isinstance(values, dict) else {}
@@ -295,7 +310,7 @@ def register_system_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     async def get_unraid_variables() -> dict[str, Any]:
         """Retrieves a selection of Unraid system variables and settings.
-           Note: Many variables are omitted due to API type issues (Int overflow/NaN).
+        Note: Many variables are omitted due to API type issues (Int overflow/NaN).
         """
         # Querying a smaller, curated set of fields to avoid Int overflow and NaN issues
         # pending Unraid API schema fixes for the full Vars type.

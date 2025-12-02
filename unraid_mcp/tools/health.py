@@ -72,8 +72,8 @@ def register_health_tools(mcp: FastMCP) -> None:
                     "transport": UNRAID_MCP_TRANSPORT,
                     "host": UNRAID_MCP_HOST,
                     "port": UNRAID_MCP_PORT,
-                    "process_uptime_seconds": time.time() - start_time  # Rough estimate
-                }
+                    "process_uptime_seconds": time.time() - start_time,  # Rough estimate
+                },
             }
 
             if not response_data:
@@ -92,7 +92,7 @@ def register_health_tools(mcp: FastMCP) -> None:
                     "machine_id": info.get("machineId"),
                     "time": info.get("time"),
                     "version": info.get("versions", {}).get("unraid"),
-                    "uptime": info.get("os", {}).get("uptime")
+                    "uptime": info.get("os", {}).get("uptime"),
                 }
             else:
                 health_status = "degraded"
@@ -104,7 +104,7 @@ def register_health_tools(mcp: FastMCP) -> None:
                 array_state = array_info.get("state", "unknown")
                 health_info["array_status"] = {
                     "state": array_state,
-                    "healthy": array_state in ["STARTED", "STOPPED"]
+                    "healthy": array_state in ["STARTED", "STOPPED"],
                 }
                 if array_state not in ["STARTED", "STOPPED"]:
                     health_status = "warning"
@@ -125,7 +125,7 @@ def register_health_tools(mcp: FastMCP) -> None:
                     "unread_total": total_unread,
                     "unread_alerts": alert_count,
                     "unread_warnings": warning_count,
-                    "has_critical_notifications": alert_count > 0
+                    "has_critical_notifications": alert_count > 0,
                 }
 
                 if alert_count > 0:
@@ -143,7 +143,9 @@ def register_health_tools(mcp: FastMCP) -> None:
                     "total_containers": len(containers),
                     "running_containers": len(running_containers),
                     "stopped_containers": len(stopped_containers),
-                    "containers_healthy": len([c for c in containers if c.get("status", "").startswith("Up")])
+                    "containers_healthy": len(
+                        [c for c in containers if c.get("status", "").startswith("Up")]
+                    ),
                 }
 
             # API performance assessment
@@ -162,7 +164,7 @@ def register_health_tools(mcp: FastMCP) -> None:
             # Add performance metrics
             health_info["performance"] = {
                 "api_response_time_ms": api_latency,
-                "health_check_duration_ms": round((time.time() - start_time) * 1000, 2)
+                "health_check_duration_ms": round((time.time() - start_time) * 1000, 2),
             }
 
             return health_info
@@ -173,14 +175,18 @@ def register_health_tools(mcp: FastMCP) -> None:
                 "status": "unhealthy",
                 "timestamp": datetime.datetime.utcnow().isoformat(),
                 "error": str(e),
-                "api_latency_ms": round((time.time() - start_time) * 1000, 2) if 'start_time' in locals() else None,
+                "api_latency_ms": (
+                    round((time.time() - start_time) * 1000, 2)
+                    if "start_time" in locals()
+                    else None
+                ),
                 "server": {
                     "name": "Unraid MCP Server",
                     "version": "0.1.0",
                     "transport": UNRAID_MCP_TRANSPORT,
                     "host": UNRAID_MCP_HOST,
-                    "port": UNRAID_MCP_PORT
-                }
+                    "port": UNRAID_MCP_PORT,
+                },
             }
 
     logger.info("Health tools registered successfully")

@@ -90,7 +90,9 @@ def register_rclone_tools(mcp: FastMCP) -> None:
             raise ToolError(f"Failed to get RClone config form: {str(e)}") from e
 
     @mcp.tool()
-    async def create_rclone_remote(name: str, provider_type: str, config_data: dict[str, Any]) -> dict[str, Any]:
+    async def create_rclone_remote(
+        name: str, provider_type: str, config_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Create a new RClone remote with the specified configuration.
 
@@ -112,13 +114,7 @@ def register_rclone_tools(mcp: FastMCP) -> None:
             }
             """
 
-            variables = {
-                "input": {
-                    "name": name,
-                    "type": provider_type,
-                    "config": config_data
-                }
-            }
+            variables = {"input": {"name": name, "type": provider_type, "config": config_data}}
 
             response_data = await make_graphql_request(mutation, variables)
 
@@ -128,7 +124,7 @@ def register_rclone_tools(mcp: FastMCP) -> None:
                 return {
                     "success": True,
                     "message": f"RClone remote '{name}' created successfully",
-                    "remote": remote_info
+                    "remote": remote_info,
                 }
 
             raise ToolError("Failed to create RClone remote")
@@ -154,20 +150,13 @@ def register_rclone_tools(mcp: FastMCP) -> None:
             }
             """
 
-            variables = {
-                "input": {
-                    "name": name
-                }
-            }
+            variables = {"input": {"name": name}}
 
             response_data = await make_graphql_request(mutation, variables)
 
             if "rclone" in response_data and response_data["rclone"]["deleteRCloneRemote"]:
                 logger.info(f"Successfully deleted RClone remote: {name}")
-                return {
-                    "success": True,
-                    "message": f"RClone remote '{name}' deleted successfully"
-                }
+                return {"success": True, "message": f"RClone remote '{name}' deleted successfully"}
 
             raise ToolError(f"Failed to delete RClone remote '{name}'")
 

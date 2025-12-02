@@ -14,7 +14,9 @@ from ..core.client import make_graphql_request
 from ..core.exceptions import ToolError
 
 
-def find_container_by_identifier(container_identifier: str, containers: list[dict[str, Any]]) -> dict[str, Any] | None:
+def find_container_by_identifier(
+    container_identifier: str, containers: list[dict[str, Any]]
+) -> dict[str, Any] | None:
     """Find a container by ID or name with fuzzy matching.
 
     Args:
@@ -42,8 +44,13 @@ def find_container_by_identifier(container_identifier: str, containers: list[dic
     for container in containers:
         names = container.get("names", [])
         for name in names:
-            if container_identifier_lower in name.lower() or name.lower() in container_identifier_lower:
-                logger.info(f"Found container via fuzzy match: '{container_identifier}' -> '{name}'")
+            if (
+                container_identifier_lower in name.lower()
+                or name.lower() in container_identifier_lower
+            ):
+                logger.info(
+                    f"Found container via fuzzy match: '{container_identifier}' -> '{name}'"
+                )
                 return container
 
     return None
@@ -144,9 +151,13 @@ def register_docker_tools(mcp: FastMCP) -> None:
 
             # Step 1: Resolve container identifier to actual container ID if needed
             actual_container_id = container_id
-            if not container_id.startswith("3cb1026338736ed07b8afec2c484e429710b0f6550dc65d0c5c410ea9d0fa6b2:"):
+            if not container_id.startswith(
+                "3cb1026338736ed07b8afec2c484e429710b0f6550dc65d0c5c410ea9d0fa6b2:"
+            ):
                 # This looks like a name, not a full container ID - need to resolve it
-                logger.info(f"Resolving container identifier '{container_id}' to actual container ID")
+                logger.info(
+                    f"Resolving container identifier '{container_id}' to actual container ID"
+                )
                 list_query = """
                 query ResolveContainerID {
                   docker {
@@ -163,7 +174,9 @@ def register_docker_tools(mcp: FastMCP) -> None:
                     resolved_container = find_container_by_identifier(container_id, containers)
                     if resolved_container:
                         actual_container_id = str(resolved_container.get("id", ""))
-                        logger.info(f"Resolved '{container_id}' to container ID: {actual_container_id}")
+                        logger.info(
+                            f"Resolved '{container_id}' to container ID: {actual_container_id}"
+                        )
                     else:
                         available_names = get_available_container_names(containers)
                         error_msg = f"Container '{container_id}' not found for {action} operation."
@@ -177,14 +190,14 @@ def register_docker_tools(mcp: FastMCP) -> None:
             # Execute the operation with idempotent error handling
             operation_context = {"operation": action}
             operation_response = await make_graphql_request(
-                operation_query,
-                variables,
-                operation_context=operation_context
+                operation_query, variables, operation_context=operation_context
             )
 
             # Handle idempotent success case
             if operation_response.get("idempotent_success"):
-                logger.info(f"Container {action} operation was idempotent: {operation_response.get('message')}")
+                logger.info(
+                    f"Container {action} operation was idempotent: {operation_response.get('message')}"
+                )
                 # Get current container state since the operation was already complete
                 try:
                     list_query = """
@@ -209,26 +222,33 @@ def register_docker_tools(mcp: FastMCP) -> None:
 
                         if container:
                             return {
-                                "operation_result": {"id": container_id, "names": container.get("names", [])},
+                                "operation_result": {
+                                    "id": container_id,
+                                    "names": container.get("names", []),
+                                },
                                 "container_details": container,
                                 "success": True,
                                 "message": f"Container {action} operation was already complete - current state returned",
-                                "idempotent": True
+                                "idempotent": True,
                             }
 
                 except Exception as lookup_error:
-                    logger.warning(f"Could not retrieve container state after idempotent operation: {lookup_error}")
+                    logger.warning(
+                        f"Could not retrieve container state after idempotent operation: {lookup_error}"
+                    )
 
                 return {
                     "operation_result": {"id": container_id},
                     "container_details": None,
                     "success": True,
                     "message": f"Container {action} operation was already complete",
-                    "idempotent": True
+                    "idempotent": True,
                 }
 
             # Handle normal successful operation
-            if not (operation_response.get("docker") and operation_response["docker"].get(mutation_name)):
+            if not (
+                operation_response.get("docker") and operation_response["docker"].get(mutation_name)
+            ):
                 raise ToolError(f"Failed to execute {action} operation on container")
 
             operation_result = operation_response["docker"][mutation_name]
@@ -273,39 +293,47 @@ def register_docker_tools(mcp: FastMCP) -> None:
                                 "operation_result": operation_result,
                                 "container_details": container,
                                 "success": True,
-                                "message": f"Container {action} operation completed successfully"
+                                "message": f"Container {action} operation completed successfully",
                             }
 
                     # If not found in this attempt, wait and retry
                     if attempt < max_retries - 1:
-                        logger.warning(f"Container {container_id} not found after {action}, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                        logger.warning(
+                            f"Container {container_id} not found after {action}, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})"
+                        )
                         await asyncio.sleep(retry_delay)
                         retry_delay *= 1.5  # Exponential backoff
 
                 except Exception as query_error:
-                    logger.warning(f"Error querying updated container state (attempt {attempt + 1}): {query_error}")
+                    logger.warning(
+                        f"Error querying updated container state (attempt {attempt + 1}): {query_error}"
+                    )
                     if attempt < max_retries - 1:
                         await asyncio.sleep(retry_delay)
                         retry_delay *= 1.5
                     else:
                         # On final attempt failure, still return operation success
-                        logger.warning(f"Could not retrieve updated container details after {action}, but operation succeeded")
+                        logger.warning(
+                            f"Could not retrieve updated container details after {action}, but operation succeeded"
+                        )
                         return {
                             "operation_result": operation_result,
                             "container_details": None,
                             "success": True,
                             "message": f"Container {action} operation completed, but updated state could not be retrieved",
-                            "warning": "Container state query failed after operation - this may be due to timing or the container not being found in the updated state"
+                            "warning": "Container state query failed after operation - this may be due to timing or the container not being found in the updated state",
                         }
 
             # If we get here, all retries failed to find the container
-            logger.warning(f"Container {container_id} not found in any retry attempt after {action}")
+            logger.warning(
+                f"Container {container_id} not found in any retry attempt after {action}"
+            )
             return {
                 "operation_result": operation_result,
                 "container_details": None,
                 "success": True,
                 "message": f"Container {action} operation completed, but container not found in subsequent queries",
-                "warning": "Container not found in updated state - this may indicate the operation succeeded but container is no longer listed"
+                "warning": "Container not found in updated state - this may indicate the operation succeeded but container is no longer listed",
             }
 
         except Exception as e:
@@ -353,7 +381,9 @@ def register_docker_tools(mcp: FastMCP) -> None:
         }}
         """
         try:
-            logger.info(f"Executing get_docker_container_details for identifier: {container_identifier}")
+            logger.info(
+                f"Executing get_docker_container_details for identifier: {container_identifier}"
+            )
             response_data = await make_graphql_request(list_query)
 
             containers = []
@@ -373,7 +403,9 @@ def register_docker_tools(mcp: FastMCP) -> None:
 
             error_msg = f"Container '{container_identifier}' not found."
             if available_names:
-                error_msg += f" Available containers: {', '.join(available_names[:10])}"  # Limit to first 10
+                error_msg += (
+                    f" Available containers: {', '.join(available_names[:10])}"  # Limit to first 10
+                )
                 if len(available_names) > 10:
                     error_msg += f" (and {len(available_names) - 10} more)"
             else:
