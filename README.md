@@ -6,7 +6,7 @@
 
 A Model Context Protocol (MCP) server providing 55+ tools to interact with an Unraid server's GraphQL API.
 
-## Quick Start
+## Installation
 
 ### Docker Run
 ```bash
@@ -32,7 +32,37 @@ services:
       UNRAID_API_KEY: "your_api_key"
 ```
 
-### Development
+## MCP Client Configuration
+
+Once the server is running, configure your MCP client to connect to `http://localhost:6970/mcp`.
+
+### Claude Desktop
+Add to your Claude Desktop configuration (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "unraid": {
+      "url": "http://localhost:6970/mcp"
+    }
+  }
+}
+```
+
+### Claude Code
+Add to your Claude Code MCP settings:
+```json
+{
+  "mcpServers": {
+    "unraid": {
+      "type": "url",
+      "url": "http://localhost:6970/mcp"
+    }
+  }
+}
+```
+
+## Development
+
 ```bash
 git clone https://github.com/mlamoure/unraid-mcp && cd unraid-mcp
 uv sync
