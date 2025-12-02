@@ -46,9 +46,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jmagar/unraid-mcp"
-Repository = "https://github.com/jmagar/unraid-mcp"
-Issues = "https://github.com/jmagar/unraid-mcp/issues"
+Homepage = "https://github.com/mlamoure/unraid-mcp"
+Repository = "https://github.com/mlamoure/unraid-mcp"
+Issues = "https://github.com/mlamoure/unraid-mcp/issues"
 
 [project.scripts]
 unraid-mcp-server = "unraid_mcp.main:main"

@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-2.13.2+-green.svg)](https://github.com/jlowin/fastmcp)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://ghcr.io/jmagar/unraid-mcp)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://ghcr.io/mlamoure/unraid-mcp)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **A powerful MCP (Model Context Protocol) server that provides comprehensive tools to interact with an Unraid server's GraphQL API.**
@@ -48,15 +48,14 @@ docker run -d \
   -p 6970:6970 \
   -e UNRAID_API_URL="https://your-unraid-server/graphql" \
   -e UNRAID_API_KEY="your_api_key" \
-  ghcr.io/jmagar/unraid-mcp:latest
+  ghcr.io/mlamoure/unraid-mcp:latest
 ```
 
 **Docker Compose:**
 ```yaml
 services:
   unraid-mcp:
-    image: ghcr.io/jmagar/unraid-mcp:latest
-    # Alternative: git.home.mikelamoureux.net/mike/unraid-mcp:latest
+    image: ghcr.io/mlamoure/unraid-mcp:latest
     restart: unless-stopped
     ports:
       - "6970:6970"
@@ -68,7 +67,7 @@ services:
 ### Building from Source (Development)
 ```bash
 # Clone repository
-git clone https://github.com/jmagar/unraid-mcp
+git clone https://github.com/mlamoure/unraid-mcp
 cd unraid-mcp
 
 # Option 1: Docker build
@@ -96,7 +95,7 @@ docker run -d \
   -p 6970:6970 \
   -e UNRAID_API_URL="https://your-unraid-server/graphql" \
   -e UNRAID_API_KEY="your_api_key_here" \
-  ghcr.io/jmagar/unraid-mcp:latest
+  ghcr.io/mlamoure/unraid-mcp:latest
 
 # View logs
 docker logs -f unraid-mcp
@@ -108,7 +107,7 @@ Create a `docker-compose.yml`:
 ```yaml
 services:
   unraid-mcp:
-    image: ghcr.io/jmagar/unraid-mcp:latest
+    image: ghcr.io/mlamoure/unraid-mcp:latest
     restart: unless-stopped
     ports:
       - "6970:6970"
@@ -130,7 +129,7 @@ For development and testing:
 
 ```bash
 # Clone repository
-git clone https://github.com/jmagar/unraid-mcp
+git clone https://github.com/mlamoure/unraid-mcp
 cd unraid-mcp
 
 # Install dependencies with uv
@@ -371,7 +370,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - 📚 Documentation: Check inline code documentation
-- 🐛 Issues: [GitHub Issues](https://github.com/jmagar/unraid-mcp/issues)
+- 🐛 Issues: [GitHub Issues](https://github.com/mlamoure/unraid-mcp/issues)
 - 💬 Discussions: Use GitHub Discussions for questions
 
 ---
