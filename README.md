@@ -350,6 +350,25 @@ uv run unraid-mcp-server
 
 ---
 
+## 🙏 Acknowledgments
+
+This project is a fork of the original [unraid-mcp](https://github.com/jmagar/unraid-mcp) created by **[jmagar](https://github.com/jmagar)**.
+
+### Fork Updates
+
+The following enhancements have been made since forking:
+
+- **Python 3.12+**: Upgraded from Python 3.10 to 3.12+ (Docker uses 3.13)
+- **FastMCP 2.13.2**: Upgraded from FastMCP 2.11.2 to 2.13.2
+- **CI/CD Pipeline**: Added GitHub Actions workflow for automated Docker builds
+- **Pre-built Images**: Docker images automatically published to GHCR on every push
+- **Code Quality**: Applied black formatting, ruff linting, and mypy type checking
+- **Modern Type Hints**: Added PEP 695 type statements and improved type annotations
+- **Configurable Paths**: Container environment paths now configurable via environment variables
+- **Dependency Updates**: Updated websockets to 14.x+ and other dependencies
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
