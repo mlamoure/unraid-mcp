@@ -6,6 +6,18 @@
 
 A Model Context Protocol (MCP) server providing 55+ tools to interact with an Unraid server's GraphQL API.
 
+## Prerequisites
+
+### Unraid API Key
+You need an API key from your Unraid server. To create one:
+
+1. Open your Unraid web interface
+2. Navigate to **Settings → Management Access → API Keys**
+3. Click **Add API Key** and configure permissions
+4. Copy the generated key for use in the configuration below
+
+For detailed instructions, see the [official Unraid API documentation](https://docs.unraid.net/API/how-to-use-the-api/).
+
 ## Installation
 
 ### Docker Run
