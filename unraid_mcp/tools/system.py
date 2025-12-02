@@ -637,7 +637,21 @@ def register_system_tools(mcp: FastMCP) -> None:
             return {"message": "No device information available"}
 
         except Exception as e:
+            error_str = str(e)
             logger.error(f"Error in get_device_info: {e}", exc_info=True)
+
+            # Handle null values for non-nullable fields (backend data issue)
+            if "Cannot return null" in error_str:
+                logger.warning(
+                    "Device info contains null values for required fields (backend issue)"
+                )
+                return {
+                    "error": "Partial device data unavailable",
+                    "message": "The Unraid API returned null for some required device fields. "
+                    "This is a backend data issue. Some device categories may not be available.",
+                    "suggestion": "Check device information directly in the Unraid web UI",
+                }
+
             raise ToolError(f"Failed to retrieve device information: {str(e)}") from e
 
     @mcp.tool()
